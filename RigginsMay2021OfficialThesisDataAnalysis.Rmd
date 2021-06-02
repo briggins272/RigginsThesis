@@ -1,0 +1,253 @@
+---
+title: "RigginsMay2021OfficialThesis DataAnalysis"
+author: "Byron Riggins"
+date: "5/23/2021"
+output: html_document
+---
+
+#THESE INCLUDE CHELSEY's Physical Data and Test Parameters
+#Must edit to reflect control variables for my investigation
+
+#Inspiration: https://cmwegener.github.io/thesis/analysis.html
+
+```{r}
+#Update R using Install R
+install.packages("installr")
+library(installr)
+updateR()
+
+#Load Packages
+rm(list=ls())
+library(tidyverse)
+library(ggpubr)
+library(scales)
+library(chron)
+library(plotly)
+library(taRifx)
+library(aweek)
+library(easypackages)
+library(renv)
+library(here)
+library(ggthemes)
+library(gridExtra)
+library(patchwork)
+library(tidyquant)
+library(recipes) 
+library(cranlogs)
+library(knitr)
+library(openair)
+library(ggplot2)
+```
+
+```{r}
+#READ IN DATA
+all$survey.season <- factor(all$survey.season, levels = c("Summer 2018", "Fall 2018", "Winter 2018", "Spring 2019", "Summer 2019", "Fall 2019"))
+all <- read.csv("C:/Users/brigg/Desktop/Laboratory/Thesis/Final Sem/Finish My Degree/InvertsAnova.csv")
+#all1<- read.csv("C:/Users/brigg/Desktop/Laboratory/Thesis/Final Sem/Finish My Degree/Fucus_Invertebrates_monthly_surveys_12.2.2020.csv")
+print(all)
+```
+
+remove.packages("rlang")
+.libPaths()
+install.packages("https://cran.r-project.org/src/contrib/Archive/rlang/rlang_0.4.9.tar.gz", repo=NULL, type="source") # for specific rlang version, in this case 0.4.9. For latest version can run install.packages("rlang")
+
+
+```{r}
+# 1) Which invertebrate species live on Rockweed thalli?
+
+#a) create table of species identified across all sites?
+#a <- data.frame(all$invertspecies,
+#  all$site)
+
+#b) Create a table of species richness, diversity, evenness by site (integrated over time), include confidence intervals
+b <- data.frame(all$site,
+  all$speciesrichness,all$spciesdiversity, all$specieseveness, all$confidenceinterval)
+
+#c) Species accumulation/rarefaction curves and confidence intervals, by site
+
+print(d)
+
+print(all)
+```
+
+```{r}
+# 2) Do the biophysical characteristics of Rockweed thalli/ patch influence the abundance of Rockweed associated invertebrates?
+
+# Season as a predictor variable 
+# (Does season exert control on invertebrate abundance?)
+# (Plot Data)
+library(ggplot2)
+library(rlang)
+s = ggplot() + 
+geom_boxplot(data = all, aes(x =all$survey.season, y = all$total_inverts_no, color = as.factor(all$site.code)))+ facet_wrap(~all$site)+ ylim(0, 15)+ theme(text = element_text(color = "black", size = 10, angle = 45)) + labs (x = "Season", y = "Total Inverts") + scale_colour_discrete(name = "Site") 
+print(s)
+
+#(Create linear model)
+
+#Invert Abundance = Constant + season
+lma <- lm(all$total_inverts_no ~ all$survey.season, data =all)  
+lma
+anova (lma)
+plot (lma, which = 1) #Residuals should be nearly flat like the dashed grey line and THEY ARE
+plot(lma, which = 2)  #In this QQ plot, points should ideally fall onto the diagonal dashed line and they DO NOT
+#We want to use all of the data, but account for the data coming from different sites. Add site as a fixed effect to our lm
+lma1 <- lm(all$total_inverts_no ~ all$survey.season + all$site, data =all) 
+summary(lma1)
+# We are not interested in quantifying abundance for each site, we just want to know whether season affects invertebrate abundance and we want to control for the variation coming from each site. This is an example of random factors and thus we should use a mixed effects model.
+
+#(Create mixed effect model to control for variation among sites)
+
+install.packages(lme4)
+library(lme4)
+
+#fixed effects are those that we expect will affect the dependent/response variable (EXPLANATORY VARIABLE)
+#random effects are usually grouping factors for which we are trying to control
+
+#(Mixed Effect Model)
+mixed.lma2 <- lmer(total_inverts_no ~ survey.season + (1|site), data = all)
+summary(mixed.lma2)
+# Here, the model estimates are larger than their associated errors. This suggests that the effect or slope is distinguishable from zero. This suggests that seasons do explain the differences in invertebrate abundance.
+
+#(Look at Plot to check assumptions)
+plot(mixed.lma2) #looks pretty good with no patterns evident
+# (And QQ Plot)
+qqnorm(resid(mixed.lma2))
+qqline(resid(mixed.lma2))#Points DO NOT fall nicely onto the line. May need to transform or something???
+plot(mixed.lma2, which = 2)
+#(PAUSE HERE)
+
+
+#Invert size as a predictor variable
+i = ggplot() + 
+geom_boxplot(data = all, aes(x =all$___________, y = all$total_inverts_no, color = as.factor(all$site.code)))+ facet_wrap(~all$site)+ ylim(0, 15)+ theme(text = element_text(color = "black", size = 10, angle = 45)) + labs (x = "Season", y = "Total Inverts") + scale_colour_discrete(name = "Site") 
+print(i)
+
+#Number of Fucus apices as a predictor variable (vegetative apices?)
+fa = ggplot() + 
+geom_boxplot(data = all, aes(x =all$dw.veg, y = all$total_inverts_no, color = as.factor(all$site.code)))+ facet_wrap(~all$site)+ ylim(0, 15)+ theme(text = element_text(color = "black", size = 10, angle = 45)) + labs (x = "Vegetative Apices", y = "Total Inverts") + scale_colour_discrete(name = "Site") 
+print(fa)
+
+#Reproductive status as a predictor variable (reproductive apices?) 
+rs = ggplot() + 
+geom_boxplot(data = all, aes(x =all$apices.repro, y = all$total_inverts_no, color = as.factor(all$site.code)))+ facet_wrap(~all$site)+ ylim(0, 15)+ theme(text = element_text(color = "black", size = 10, angle = 45)) + labs (x = "Reproductive Apices", y = "Total Inverts") + scale_colour_discrete(name = "Site") 
+print(rs)
+
+#Density of thalli in a quadrat as a predictor variable (fucus cover, must check if right variable)
+t = ggplot() + 
+geom_boxplot(data = all, aes(x =all$cover, y = all$total_inverts_no, color = as.factor(all$site.code)))+ facet_wrap(~all$site)+ ylim(0, 15)+ theme(text = element_text(color = "black", size = 10, angle = 45)) + labs (x = "Fucus Density", y = "Total Inverts") + scale_colour_discrete(name = "Site") 
+print(t)
+
+```
+
+```{r}
+# 3) Does the abundance of Rockweed associated invertebrates change with tidal height?
+a = ggplot() + 
+geom_boxplot(data = all, aes(x =all, y = all$total_inverts_no, color = as.factor(all$site.code)))+ facet_wrap(~all$site)+ ylim(0, 15)+ theme(text = element_text(color = "black", size = 10, angle = 45)) + labs (x = "Tidal Height", y = "Total Inverts") + scale_colour_discrete(name = "Site") 
+print(a)
+```
+
+```{r}
+# 4) How abundant are Rockweed associated invertebrates?
+b = ggplot() + 
+geom_boxplot(data = all, aes(x =all$month, y = all$total_inverts_no, color = as.factor(all$site.code)))+ facet_wrap(~all$site)+ ylim(0, 15)+ theme(text = element_text(color = "black", size = 10, angle = 45)) + labs (x = "Season", y = "Total Inverts") + scale_colour_discrete(name = "Site") 
+print(b)
+```
+
+```{r}
+# 5) How does the abundance of Rockweed associated invertebrates change seasonally?
+o = ggplot() + 
+geom_boxplot(data = all, aes(x =all$survey.season, y = all$total_inverts_no, color = as.factor(all$site.code)))+ facet_wrap(~all$site)+ ylim(0, 15)+ theme(text = element_text(color = "black", size = 10, angle = 45)) + labs (x = "Season", y = "Total Inverts") + scale_colour_discrete(name = "Site") 
+print(o)
+```
+
+```{r}
+# 6) Does the distribution and abundance of Rockweed associated invertebrates vary among estuarine sites with different salinity regimes?
+```
+
+```{r}
+# 7) How do environmental conditions influence the abundance of Rockweed associated invertebrates?
+
+
+#pH and Salinity
+#The Effect of pH and salinity on Invert density
+lm1 <- lm(all$total_inverts_no ~ salinity + ph + salinity:ph, data =all)  
+lm1
+summary (lm1)
+anova (lm1)
+plot (lm1)
+
+#Effect of pH and salinity on Invert density, interaction term removed
+# When to remove interaction term???
+lm2 <- lm(all$total_inverts_no ~ salinity + ph, data =all)  
+lm2
+summary(lm2)
+anova (lm2)
+plot (lm2)
+
+#Effect of salinity and pH on Invert density: daily minimum salinity
+lm3 <- lm(all$total_inverts_no ~ daily.min.sal + ph, data =all)  
+lm3
+summary (lm3)
+anova (lm3)
+plot (lm3)
+
+#Effect of salinity and pH on density: daily maximum salinity
+lm4 <- lm(all$total_inverts_no ~ daily.max.sal + ph, data =all)  
+lm4
+summary (lm4)
+anova (lm4)
+plot (lm4)
+
+#Effect of pH ONLY
+#Effect of pH on Invert density, interaction term removed
+# Density = Constant + pH
+lm5 <- lm(all$total_inverts_no ~ ph, data =all)  
+lm5
+summary(lm5)
+anova (lm5)
+plot (lm5)
+
+#EFFECT OF SALINITY ONLY
+#Effect of salinity on Invert density 
+#Density = Constant + salinity
+lm6 <- lm(all$total_inverts_no ~ all$salinity, data =all)  
+lm6
+summary(lm6)
+anova (lm6)
+plot (lm6)
+
+#EFFECT OF TEMPERATURE ONLY
+#Effect of water temperature on Invert density
+# Density = Constant + water temperature
+lm7 <- lm(all$total_inverts_no ~ all$water.temp, data =all)  
+lm7
+summary(lm7)
+anova (lm7)
+plot (lm7)
+```
+
+```{r}
+
+```
+
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
